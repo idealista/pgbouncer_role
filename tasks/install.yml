@@ -1,0 +1,98 @@
+---
+- name: Install pgbouncer package
+  ansible.builtin.package:
+    name:
+      - procps
+      - pgbouncer
+    state: latest
+  register: package_status
+  until: package_status is success
+  delay: 5
+  retries: 3
+  environment: "{{ proxy_env | default({}) }}"
+  when: ansible_os_family == "Debian" or
+        (ansible_os_family == "RedHat" and
+        ansible_distribution_major_version == '7')
+  tags: pgbouncer_install, pgbouncer
+
+# RHEL 8
+- name: Install pgbouncer package
+  ansible.builtin.dnf:
+    name: pgbouncer
+    state: latest
+    disablerepo: AppStream
+  environment: "{{ proxy_env | default({}) }}"
+  when: ansible_os_family == "RedHat" and
+        ansible_distribution_major_version >= '8'
+  tags: pgbouncer_install, pgbouncer
+
+- name: Ensure config directory "{{ pgbouncer_conf_dir }}" exist
+  ansible.builtin.file:
+    path: "{{ pgbouncer_conf_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+  tags: pgbouncer_conf, pgbouncer
+
+- name: Check if pgbouncer systemd service file exists
+  ansible.builtin.stat:
+    path: /etc/systemd/system/pgbouncer.service
+  register: pgbouncer_systemd_service
+  tags: pgbouncer_service, pgbouncer
+
+- name: Stop and disable standard init script
+  ansible.builtin.service:
+    name: pgbouncer
+    state: stopped
+    enabled: false
+  when:
+    - ansible_os_family == "Debian"
+    - not pgbouncer_systemd_service.stat.exists
+  tags: pgbouncer_service, pgbouncer
+
+- name: Configure pgbouncer systemd service file
+  ansible.builtin.template:
+    src: templates/pgbouncer.service.j2
+    dest: /etc/systemd/system/pgbouncer.service
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: "restart pgbouncer"
+  tags: pgbouncer_service, pgbouncer
+
+- name: Ensure pgbouncer service is enabled
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: pgbouncer
+    enabled: true
+  tags: pgbouncer_service, pgbouncer
+
+- name: Enable log rotation with logrotate
+  ansible.builtin.copy:
+    content: |
+      /var/log/pgbouncer/pgbouncer.log {
+             daily
+             rotate 14
+             copytruncate
+             delaycompress
+             compress
+             notifempty
+             missingok
+             su root root
+      }
+    dest: /etc/logrotate.d/pgbouncer
+  tags: pgbouncer_logrotate, pgbouncer
+
+- name: Configure pgbouncer.ini
+  ansible.builtin.template:
+    src: templates/pgbouncer.ini.j2
+    dest: "{{ pgbouncer_conf_dir }}/pgbouncer.ini"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: "restart pgbouncer"
+  when: existing_pgcluster is not defined or not existing_pgcluster|bool
+  tags: pgbouncer_conf, pgbouncer
+
+...
