@@ -1,0 +1,10 @@
+---
+- name: PGBOUNCER | Install
+  import_tasks: install.yml
+  tags:
+    - pgbouncer_install, pgbouncer, pgbouncer_conf, pgbouncer_service, pgbouncer_logrotate
+
+- name: PGBOUNCER | Configure
+  import_tasks: config.yml
+  tags:
+    - pgbouncer, pgbouncer_conf, pgbouncer_auth_query, pgbouncer_generate_userlist, pgbouncer_logrotate

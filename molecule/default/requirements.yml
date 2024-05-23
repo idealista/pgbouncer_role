@@ -1,0 +1,6 @@
+
+- src: https://github.com/idealista/postgresql_role
+  scm: git
+  version: 2.0.0
+  name: postgresql_role
+

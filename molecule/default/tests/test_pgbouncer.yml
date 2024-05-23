@@ -1,0 +1,63 @@
+# Molecule managed
+
+---
+file:
+  {{ pgbouncer_conf_dir }}:
+    exists: true
+    filetype: directory
+    owner: {{ pg_user }}
+    group: {{ pg_group }}
+  {{ pgbouncer_log_dir }}:
+    exists: true
+    filetype: directory
+    owner: {{ pg_user }}
+    group: {{ pg_group }}
+{% for item in pgbouncer_config_files %}
+{{ pgbouncer_conf_dir }}/{{ item }}:
+    exists: true
+    owner: {{ pg_user }}
+    group: {{ pg_group }}
+    filetype: file
+{% endfor %}
+
+service:
+  {{ pgbouncer_service }}:
+    enabled: true
+    running: true
+port:
+  tcp:{{ pgbouncer_listen_port }}:
+    listening: true
+
+command:
+  pgversion:
+    exit-status: 0
+    exec: "pgbouncer -V"
+    stdout:
+      - "PgBouncer"
+    stderr: []
+    timeout: 30000
+    skip: false
+  pgisready:
+    exit-status: 0
+    exec: "{{ pg_bin_dir }}/pg_isready -h localhost -p {{ pgbouncer_listen_port }}"
+    stdout:
+      - "accepting connections"
+    stderr: []
+    timeout: 30000
+    skip: false
+  users:
+    exit-status: 0
+    exec: runuser -l {{ pg_superuser_username }} -c 'PGPASSWORD={{ pg_superuser_password }} {{ pg_bin_dir }}/psql -p {{ pgbouncer_listen_port }} -c "\du"'
+    stdout:
+      - "{{ pg_users[0].name }}"
+    stderr: []
+    timeout: 30000
+    skip: false
+  databases:
+    exit-status: 0
+    exec: runuser -l {{ pg_superuser_username }} -c 'PGPASSWORD={{ pg_superuser_password }} {{ pg_bin_dir }}/psql -p {{ pgbouncer_listen_port }} -c "\l"'
+    stdout:
+      - "{{ pg_databases[0].name }}"
+    stderr: []
+    timeout: 30000
+    skip: false

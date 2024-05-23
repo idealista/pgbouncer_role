@@ -1,0 +1,16 @@
+---
+
+- name: Restart pgbouncer service
+  ansible.builtin.systemd:
+    name: pgbouncer
+    enabled: true
+    state: restarted
+  listen: "restart pgbouncer"
+
+- name: Reload pgbouncer service
+  ansible.builtin.systemd:
+    name: pgbouncer
+    state: reloaded
+  listen: "reload pgbouncer"
+
+...

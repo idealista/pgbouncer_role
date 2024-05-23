@@ -1,0 +1,65 @@
+---
+# ---------------------------------------------------------------------
+# Proxy variables (optional) for download packages using a proxy server
+proxy_env: {}  # yamllint disable rule:braces
+#  http_proxy: http://10.128.64.9:3128
+#  https_proxy: http://10.128.64.9:3128
+# ---------------------------------------------------------------------
+
+# PgPostgresql parameters
+is_master: true
+pg_major_release: '16'
+pg_superuser_username: example_user
+pg_superuser_password: supersecure  # please change password
+pg_host: '127.0.0.1'
+pg_port: 5432
+pg_users_no_log: true  # if it's set to false the password will be printed after command execution (insecure)
+pg_bin_dir: "{{ (ansible_distribution == 'Debian') | ternary('/usr/lib/postgresql/' ~ pg_major_release ~  '/bin', '/usr/pgsql-' ~ pg_major_release ~  '/bin') }}"
+pg_password_encryption: "{{ 'scram-sha-256' if pg_major_release | int > 13 else 'md5' }}"
+
+# PgBouncer parameters
+pgbouncer_conf_dir: '/etc/pgbouncer'
+pgbouncer_log_dir: '/var/log/pgbouncer'
+pgbouncer_listen_addr: '0.0.0.0'
+pgbouncer_listen_port: 6432
+pgbouncer_max_client_conn: 1000
+pgbouncer_max_db_connections: 100
+pgbouncer_default_pool_size: 20
+pgbouncer_query_wait_timeout: 120
+pgbouncer_default_pool_mode: 'session'
+pgbouncer_admin_users: "{{ pg_superuser_username }}"  # comma-separated list of users, who are allowed to change settings
+pgbouncer_stats_users: "{{ pg_superuser_username }}"  # comma-separated list of users who are just allowed to use SHOW command
+pgbouncer_ignore_startup_parameters: 'extra_float_digits,geqo,search_path'
+pgbouncer_auth_type: " {{ pg_password_encryption | default('md5') }} "
+pgbouncer_auth_user: true   # or 'false' if you want to manage the list of users for authentication in the database via userlist.txt
+pgbouncer_auth_hba_file: "{{ pgbouncer_conf_dir + '/pg_hba.conf' }}"
+pgbouncer_auth_username: 'pgbouncer'  # user who can query the database via the user_search function
+pgbouncer_auth_password: 'pgbouncer-pwd'  # please change password
+pgbouncer_auth_dbname: 'postgres'
+pgbouncer_log_connections: 0
+pgbouncer_log_disconnections: 0
+
+pgbouncer_pools:
+  - { name: "postgres", dbname: "postgres", pool_parameters: "" }
+#  - { name: "mydatabase", dbname: "mydatabase", pool_parameters: "pool_size=20 pool_mode=transaction" }
+#  - { name: "", dbname: "", pool_parameters: "" }
+#  - { name: "", dbname: "", pool_parameters: "" }
+
+pgbouncer_settings: []
+#  - { name: "query_timeout", value="0.0" }
+
+__pg_hba_declarations_default: [
+  '# "local" is for Unix domain socket connections only',
+  "local   all             all                                     peer",
+  "# IPv4 local connections:",
+  "host    all             {{ pgbouncer_auth_username.ljust(15) }} 127.0.0.1/32            trust",
+  "host    all             all             127.0.0.1/32            {{ pg_password_encryption }}",
+  "# IPv6 local connections:",
+  "host    all             all             ::1/128                 {{ pg_password_encryption }}",
+  "# Allow replication connections from localhost, by a user with the",
+  "# replication privilege.",
+  "local   replication     all                                     peer",
+  "host    replication     all             127.0.0.1/32            {{ pg_password_encryption }}",
+  "host    replication     all             ::1/128                 {{ pg_password_encryption }}",
+]
+...
