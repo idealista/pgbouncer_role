@@ -1,0 +1,39 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: molecule/default/requirements.yml
+driver:
+  name: docker
+
+lint: |
+    yamllint .
+    ansible-lint .
+
+platforms:
+  - name: pgbouncer
+    image: ${DOCKER_BASE_IMAGE:-debian:bookworm-slim}
+    privileged: false
+    volumes:
+      - '/sys/fs/cgroup:/sys/fs/cgroup'
+    groups:
+      - pggroup
+    tmpfs:
+      - '/tmp'
+      - '/run'
+      - '/run/lock'
+    command: '/lib/systemd/systemd'
+
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+  inventory:
+    links:
+      group_vars: group_vars/
+
+scenario:
+  name: default
+
+verifier:
+  name: ansible

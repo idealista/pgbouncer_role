@@ -1,0 +1,49 @@
+---
+
+is_master: true
+
+pgbouncer_listen_port: 6432
+
+pgbouncer_conf_dir: '/etc/pgbouncer'
+pgbouncer_log_dir: '/var/log/pgbouncer'
+
+pgbouncer_config_files:
+   - pgbouncer.ini
+   - userlist.txt
+
+pgbouncer_service: "pgbouncer"
+
+pg_superuser_username: postgres
+pg_superuser_password: supersecure
+__pg_major_release: "{{ '15' if (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '7') else '16' }}"
+pg_major_release: "{{ (lookup('env', 'PG_MAJOR_RELEASE', default='') |  length > 0) | ternary(lookup('env', 'PG_MAJOR_RELEASE'), __pg_major_release) }}"
+pg_os_tuning: false
+pg_users_no_log: false
+pg_users:
+  - name: "{{ pg_superuser_username }}"
+    password: "{{ pg_superuser_password }}"
+pg_databases:
+  - name: example_db
+pg_custom_options:
+  custom.option: "sample_option"
+pg_bin_dir: "{{ (ansible_distribution == 'Debian') | ternary('/usr/lib/postgresql/' ~ pg_major_release ~  '/bin', '/usr/pgsql-' ~ pg_major_release ~  '/bin') }}"
+
+pg_user: postgres
+pg_group: postgres
+
+pg_password_encryption: "{{ 'scram-sha-256' if pg_major_release | int > 13 else 'md5' }}"
+
+__pg_hba_declarations_default: [
+   '# "local" is for Unix domain socket connections only',
+   "local   all             all                                     peer",
+   "# IPv4 local connections:",
+   "host    all             {{ pgbouncer_auth_username.ljust(15) }} 127.0.0.1/32            trust",
+   "host    all             all             127.0.0.1/32            {{ pg_password_encryption }}",
+   "# IPv6 local connections:",
+   "host    all             all             ::1/128                 {{ pg_password_encryption }}",
+   "# Allow replication connections from localhost, by a user with the",
+   "# replication privilege.",
+   "local   replication     all                                     peer",
+   "host    replication     all             127.0.0.1/32            {{ pg_password_encryption }}",
+   "host    replication     all             ::1/128                 {{ pg_password_encryption }}",
+]
